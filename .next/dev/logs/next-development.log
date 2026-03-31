@@ -8,3 +8,5 @@
 {"timestamp":"00:01:23.693","source":"Server","level":"LOG","message":""}
 {"timestamp":"00:01:23.693","source":"Server","level":"LOG","message":"When running on Windows, file names are checked against an access list to protect against remote code execution attacks. File names may consist only of alphanumeric characters (all languages), periods, dashes, slashes, and underscores."}
 {"timestamp":"00:01:23.694","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:11:01.636","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
+{"timestamp":"00:30:55.315","source":"Server","level":"LOG","message":"✓ Compiled in 90ms"}

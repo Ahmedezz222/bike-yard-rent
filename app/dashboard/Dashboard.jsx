@@ -351,6 +351,7 @@ export default function Dashboard() {
           status: true,
           bike_id: selectedBikeId.trim() || selectedCustomer.bike_id || "",
           is_blocked: false,
+          created_at: new Date().toISOString(),
         })
         .eq("id", selectedCustomer.id);
       if (error) throw error;
