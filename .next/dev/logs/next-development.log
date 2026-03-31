@@ -2,3 +2,9 @@
 {"timestamp":"00:00:05.592","source":"Server","level":"LOG","message":"○ Compiling / ..."}
 {"timestamp":"00:00:07.957","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
 {"timestamp":"00:00:08.085","source":"Server","level":"WARN","message":"⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from \"192.168.56.1\".\nCross-origin access to Next.js dev resources is blocked by default for safety.\n\nTo allow this host in development, add it to \"allowedDevOrigins\" in next.config.js and restart the dev server:\n\n// next.config.js\nmodule.exports = {\n  allowedDevOrigins: ['192.168.56.1'],\n}\n\nRead more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins"}
+{"timestamp":"00:01:06.499","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
+{"timestamp":"00:01:23.692","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:01:23.693","source":"Server","level":"LOG","message":"Could not open layout.tsx in the editor."}
+{"timestamp":"00:01:23.693","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:01:23.693","source":"Server","level":"LOG","message":"When running on Windows, file names are checked against an access list to protect against remote code execution attacks. File names may consist only of alphanumeric characters (all languages), periods, dashes, slashes, and underscores."}
+{"timestamp":"00:01:23.694","source":"Server","level":"LOG","message":""}
