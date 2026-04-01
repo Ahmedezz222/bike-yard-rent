@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Bike, Phone, Upload, User } from "lucide-react";
 
@@ -53,6 +53,33 @@ function customerIdImageDataUri(id) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+const ALL_CUSTOMERS_PAGE_SIZE = 100;
+const CUSTOMER_SELECT_FIELDS =
+  "id, created_at, name, phone, bike_id, customer_id, customer_id_image, status, is_blocked";
+
+function mapCustomerRow(row) {
+  const createdLabel = row.created_at ? new Date(row.created_at).toLocaleString() : "";
+  const shortCustomerId = row.customer_id || formatCustomerId(row.id);
+  const idImageSrc = row.customer_id_image || customerIdImageDataUri(row.id);
+  return {
+    ...row,
+    createdLabel,
+    shortCustomerId,
+    idImageSrc,
+    activeSearchBlob: `${row.name ?? ""} ${row.phone ?? ""} ${row.bike_id ?? ""}`.toLowerCase(),
+    allSearchBlob: `${row.name ?? ""} ${row.phone ?? ""} ${row.bike_id ?? ""} ${row.customer_id ?? ""}`.toLowerCase(),
+  };
+}
+
+const ElapsedTimer = memo(function ElapsedTimer({ createdAt }) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <>{formatElapsedTime(createdAt, nowMs)}</>;
+});
+
 function toDashboardError(err, fallbackMessage) {
   const raw = err?.message ? String(err.message) : "";
   if (raw.toLowerCase().includes("could not find the table 'public.customers'")) {
@@ -93,10 +120,11 @@ export default function Dashboard() {
   const [isLoadingRentals, setIsLoadingRentals] = useState(true);
   const [activeRentals, setActiveRentals] = useState([]);
   const [allCustomers, setAllCustomers] = useState([]);
+  const [allCustomersPage, setAllCustomersPage] = useState(1);
+  const [hasMoreAllCustomers, setHasMoreAllCustomers] = useState(false);
+  const [isLoadingMoreCustomers, setIsLoadingMoreCustomers] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [allCustomersSearch, setAllCustomersSearch] = useState("");
-  const [mounted, setMounted] = useState(false);
-  const [nowMs, setNowMs] = useState(0);
   const [previewImage, setPreviewImage] = useState("");
   const [previewTitle, setPreviewTitle] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -116,13 +144,13 @@ export default function Dashboard() {
 
       const { data, error } = await supabase
         .from("customers")
-        .select("id, created_at, name, phone, bike_id, customer_id, customer_id_image, is_blocked")
+        .select(CUSTOMER_SELECT_FIELDS)
         .eq("status", true)
         .eq("is_blocked", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setActiveRentals(data ?? []);
+      setActiveRentals((data ?? []).map(mapCustomerRow));
     } catch (err) {
       setSubmitError(toDashboardError(err, "Failed to load active rentals."));
       setActiveRentals([]);
@@ -131,21 +159,25 @@ export default function Dashboard() {
     }
   }, []);
 
-  const loadAllCustomers = useCallback(async () => {
+  const loadAllCustomersPage = useCallback(async (page, append = false) => {
     if (!isConfigured || !supabase) {
       setAllCustomers([]);
       return;
     }
     try {
+      const from = (page - 1) * ALL_CUSTOMERS_PAGE_SIZE;
+      const to = from + ALL_CUSTOMERS_PAGE_SIZE - 1;
       const { data, error } = await supabase
         .from("customers")
-        .select("id, created_at, name, phone, bike_id, customer_id, customer_id_image, status, is_blocked")
+        .select(CUSTOMER_SELECT_FIELDS)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setAllCustomers(data ?? []);
+      const rows = (data ?? []).slice(from, to + 1).map(mapCustomerRow);
+      setAllCustomers((prev) => (append ? [...prev, ...rows] : rows));
+      setHasMoreAllCustomers((data ?? []).length > to + 1);
     } catch {
-      setAllCustomers([]);
+      if (!append) setAllCustomers([]);
     }
   }, []);
 
@@ -155,70 +187,91 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    setMounted(true);
-    setNowMs(Date.now());
-    const timer = setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    // Initial load + live updates.
     loadActiveRentals();
-    loadAllCustomers();
+    loadAllCustomersPage(1, false);
 
     if (!isConfigured || !supabase) return;
+
+    let refreshTimer = null;
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        loadActiveRentals();
+        loadAllCustomersPage(1, false);
+        setAllCustomersPage(1);
+      }, 250);
+    };
+
+    const applyRealtimeChange = (payload) => {
+      const eventType = payload?.eventType;
+      const nextRow = payload?.new?.id ? mapCustomerRow(payload.new) : null;
+      const oldRow = payload?.old;
+
+      setAllCustomers((prev) => {
+        if (eventType === "DELETE" && oldRow?.id) {
+          return prev.filter((row) => row.id !== oldRow.id);
+        }
+        if ((eventType === "INSERT" || eventType === "UPDATE") && nextRow) {
+          const idx = prev.findIndex((row) => row.id === nextRow.id);
+          if (idx === -1) return [nextRow, ...prev].slice(0, allCustomersPage * ALL_CUSTOMERS_PAGE_SIZE);
+          const copy = [...prev];
+          copy[idx] = nextRow;
+          return copy;
+        }
+        return prev;
+      });
+
+      setActiveRentals((prev) => {
+        if (eventType === "DELETE" && oldRow?.id) {
+          return prev.filter((row) => row.id !== oldRow.id);
+        }
+        if ((eventType === "INSERT" || eventType === "UPDATE") && nextRow) {
+          const shouldBeActive = Boolean(nextRow.status) && !Boolean(nextRow.is_blocked);
+          const idx = prev.findIndex((row) => row.id === nextRow.id);
+          if (!shouldBeActive) return idx === -1 ? prev : prev.filter((row) => row.id !== nextRow.id);
+          if (idx === -1) return [nextRow, ...prev];
+          const copy = [...prev];
+          copy[idx] = nextRow;
+          return copy;
+        }
+        return prev;
+      });
+
+      scheduleRefresh();
+    };
 
     const channel = supabase
       .channel("customers-active-rentals")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "customers" },
-        () => {
-          // Simple + robust: refresh list on any change.
-          loadActiveRentals();
-          loadAllCustomers();
-        }
+        applyRealtimeChange
       )
       .subscribe();
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       supabase.removeChannel(channel);
     };
-  }, [loadActiveRentals, loadAllCustomers]);
+  }, [allCustomersPage, loadActiveRentals, loadAllCustomersPage]);
 
   const quickAddDisabled = useMemo(() => isSubmitting, [isSubmitting]);
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const normalizedAllCustomersSearch = allCustomersSearch.trim().toLowerCase();
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const deferredAllCustomersSearch = useDeferredValue(allCustomersSearch);
+  const normalizedSearch = deferredSearchTerm.trim().toLowerCase();
+  const normalizedAllCustomersSearch = deferredAllCustomersSearch.trim().toLowerCase();
 
   const filteredActiveRentals = useMemo(() => {
     if (!normalizedSearch) return activeRentals;
     return activeRentals.filter((row) => {
-      const nameValue = String(row.name ?? "").toLowerCase();
-      const phoneValue = String(row.phone ?? "").toLowerCase();
-      const bikeValue = String(row.bike_id ?? "").toLowerCase();
-      return (
-        nameValue.includes(normalizedSearch) ||
-        phoneValue.includes(normalizedSearch) ||
-        bikeValue.includes(normalizedSearch)
-      );
+      return row.activeSearchBlob.includes(normalizedSearch);
     });
   }, [activeRentals, normalizedSearch]);
 
   const filteredAllCustomers = useMemo(() => {
     if (!normalizedAllCustomersSearch) return allCustomers;
     return allCustomers.filter((row) => {
-      const nameValue = String(row.name ?? "").toLowerCase();
-      const phoneValue = String(row.phone ?? "").toLowerCase();
-      const bikeValue = String(row.bike_id ?? "").toLowerCase();
-      const customerIdValue = String(row.customer_id ?? "").toLowerCase();
-      return (
-        nameValue.includes(normalizedAllCustomersSearch) ||
-        phoneValue.includes(normalizedAllCustomersSearch) ||
-        bikeValue.includes(normalizedAllCustomersSearch) ||
-        customerIdValue.includes(normalizedAllCustomersSearch)
-      );
+      return row.allSearchBlob.includes(normalizedAllCustomersSearch);
     });
   }, [allCustomers, normalizedAllCustomersSearch]);
 
@@ -275,8 +328,17 @@ export default function Dashboard() {
         created_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from("customers").insert(payload);
+      const { data, error } = await supabase
+        .from("customers")
+        .insert(payload)
+        .select(CUSTOMER_SELECT_FIELDS)
+        .single();
       if (error) throw error;
+      if (data?.id) {
+        const mapped = mapCustomerRow(data);
+        setAllCustomers((prev) => [mapped, ...prev].slice(0, allCustomersPage * ALL_CUSTOMERS_PAGE_SIZE));
+        if (mapped.status && !mapped.is_blocked) setActiveRentals((prev) => [mapped, ...prev]);
+      }
 
       // Clear only the entry fields; the list will refresh via realtime.
       setName("");
@@ -287,7 +349,6 @@ export default function Dashboard() {
 
       // Keep the flow fast for the next customer.
       setTimeout(() => nameInputRef.current?.focus(), 0);
-      await loadAllCustomers();
     } catch (err) {
       setSubmitError(toDashboardError(err, "Failed to add customer."));
     } finally {
@@ -300,14 +361,19 @@ export default function Dashboard() {
     try {
       setSubmitError("");
       setEndingRentalId(rentalId);
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("customers")
         .update({ status: false })
-        .eq("id", rentalId);
+        .eq("id", rentalId)
+        .select(CUSTOMER_SELECT_FIELDS)
+        .single();
 
       if (error) throw error;
-      await loadActiveRentals();
-      await loadAllCustomers();
+      if (data?.id) {
+        const mapped = mapCustomerRow(data);
+        setAllCustomers((prev) => prev.map((row) => (row.id === mapped.id ? mapped : row)));
+        setActiveRentals((prev) => prev.filter((row) => row.id !== mapped.id));
+      }
     } catch (err) {
       setSubmitError(toDashboardError(err, "Failed to end rental."));
     } finally {
@@ -345,7 +411,7 @@ export default function Dashboard() {
     try {
       setActionLoading(true);
       setSubmitError("");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("customers")
         .update({
           status: true,
@@ -353,11 +419,24 @@ export default function Dashboard() {
           is_blocked: false,
           created_at: new Date().toISOString(),
         })
-        .eq("id", selectedCustomer.id);
+        .eq("id", selectedCustomer.id)
+        .select(CUSTOMER_SELECT_FIELDS)
+        .single();
       if (error) throw error;
+      if (data?.id) {
+        const mapped = mapCustomerRow(data);
+        setAllCustomers((prev) => prev.map((row) => (row.id === mapped.id ? mapped : row)));
+        if (mapped.status && !mapped.is_blocked) {
+          setActiveRentals((prev) => {
+            const idx = prev.findIndex((row) => row.id === mapped.id);
+            if (idx === -1) return [mapped, ...prev];
+            const copy = [...prev];
+            copy[idx] = mapped;
+            return copy;
+          });
+        }
+      }
       setSelectedCustomer(null);
-      await loadActiveRentals();
-      await loadAllCustomers();
     } catch (err) {
       setSubmitError(toDashboardError(err, "Failed to restart rental."));
     } finally {
@@ -370,17 +449,22 @@ export default function Dashboard() {
     try {
       setActionLoading(true);
       setSubmitError("");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("customers")
         .update({
           is_blocked: true,
           status: false,
         })
-        .eq("id", selectedCustomer.id);
+        .eq("id", selectedCustomer.id)
+        .select(CUSTOMER_SELECT_FIELDS)
+        .single();
       if (error) throw error;
+      if (data?.id) {
+        const mapped = mapCustomerRow(data);
+        setAllCustomers((prev) => prev.map((row) => (row.id === mapped.id ? mapped : row)));
+        setActiveRentals((prev) => prev.filter((row) => row.id !== mapped.id));
+      }
       setSelectedCustomer(null);
-      await loadActiveRentals();
-      await loadAllCustomers();
     } catch (err) {
       setSubmitError(toDashboardError(err, "Failed to block user."));
     } finally {
@@ -393,16 +477,20 @@ export default function Dashboard() {
     try {
       setActionLoading(true);
       setSubmitError("");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("customers")
         .update({
           is_blocked: false,
         })
-        .eq("id", selectedCustomer.id);
+        .eq("id", selectedCustomer.id)
+        .select(CUSTOMER_SELECT_FIELDS)
+        .single();
       if (error) throw error;
-      setSelectedCustomer((prev) => (prev ? { ...prev, is_blocked: false } : prev));
-      await loadActiveRentals();
-      await loadAllCustomers();
+      if (data?.id) {
+        const mapped = mapCustomerRow(data);
+        setAllCustomers((prev) => prev.map((row) => (row.id === mapped.id ? mapped : row)));
+        setSelectedCustomer(mapped);
+      }
     } catch (err) {
       setSubmitError(toDashboardError(err, "Failed to unblock user."));
     } finally {
@@ -419,9 +507,9 @@ export default function Dashboard() {
       setSubmitError("");
       const { error } = await supabase.from("customers").delete().eq("id", selectedCustomer.id);
       if (error) throw error;
+      setAllCustomers((prev) => prev.filter((row) => row.id !== selectedCustomer.id));
+      setActiveRentals((prev) => prev.filter((row) => row.id !== selectedCustomer.id));
       setSelectedCustomer(null);
-      await loadActiveRentals();
-      await loadAllCustomers();
     } catch (err) {
       setSubmitError(toDashboardError(err, "Failed to delete customer."));
     } finally {
@@ -586,35 +674,33 @@ export default function Dashboard() {
                 ) : null}
 
                 {filteredActiveRentals.map((row) => {
-                  const created = row.created_at ? new Date(row.created_at).toLocaleString() : "";
-                  const elapsed = mounted ? formatElapsedTime(row.created_at, nowMs) : "--";
                   const isEndingThisRow = endingRentalId === row.id;
-                  const shortId = row.customer_id || formatCustomerId(row.id);
-                  const idImg = row.customer_id_image || customerIdImageDataUri(row.id);
                   return (
                     <tr key={row.id} className="border-t border-zinc-800/60 hover:bg-zinc-950/30">
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={() => openImagePreview(idImg, `Customer ${shortId}`)}
+                          onClick={() => openImagePreview(row.idImageSrc, `Customer ${row.shortCustomerId}`)}
                           className="rounded-lg border border-zinc-700 transition hover:border-zinc-500"
-                          aria-label={`Open ID image for ${shortId}`}
+                          aria-label={`Open ID image for ${row.shortCustomerId}`}
                         >
                           <Image
-                            src={idImg}
-                            alt={`Customer ${shortId}`}
+                            src={row.idImageSrc}
+                            alt={`Customer ${row.shortCustomerId}`}
                             width={40}
                             height={40}
                             className="h-10 w-10 rounded-lg"
                           />
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-mono text-zinc-300">{shortId}</td>
+                      <td className="px-4 py-3 font-mono text-zinc-300">{row.shortCustomerId}</td>
                       <td className="px-4 py-3 font-medium text-zinc-100">{row.name}</td>
                       <td className="px-4 py-3 text-zinc-300">{row.phone}</td>
                       <td className="px-4 py-3 text-zinc-300">{row.bike_id}</td>
-                      <td className="px-4 py-3 font-mono text-zinc-200">{elapsed}</td>
-                      <td className="px-4 py-3 text-zinc-500">{created}</td>
+                      <td className="px-4 py-3 font-mono text-zinc-200">
+                        <ElapsedTimer createdAt={row.created_at} />
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500">{row.createdLabel}</td>
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
@@ -643,7 +729,7 @@ export default function Dashboard() {
               className="h-9 w-64 rounded-lg border border-zinc-800 bg-zinc-950 px-3 text-xs text-zinc-200 outline-none placeholder:text-zinc-500 focus:border-zinc-700 focus:ring-2 focus:ring-zinc-700"
               aria-label="Search All Customers"
             />
-            <div className="text-xs text-zinc-400">{allCustomers.length} total</div>
+            <div className="text-xs text-zinc-400">{allCustomers.length} loaded</div>
           </div>
         </div>
 
@@ -671,10 +757,7 @@ export default function Dashboard() {
                 ) : null}
 
                 {filteredAllCustomers.map((row) => {
-                  const created = row.created_at ? new Date(row.created_at).toLocaleString() : "";
                   const isActive = Boolean(row.status);
-                  const shortId = row.customer_id || formatCustomerId(row.id);
-                  const idImg = row.customer_id_image || customerIdImageDataUri(row.id);
                   return (
                     <tr
                       key={`all-${row.id}`}
@@ -684,20 +767,20 @@ export default function Dashboard() {
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={() => openImagePreview(idImg, `Customer ${shortId}`)}
+                          onClick={() => openImagePreview(row.idImageSrc, `Customer ${row.shortCustomerId}`)}
                           className="rounded-lg border border-zinc-700 transition hover:border-zinc-500"
-                          aria-label={`Open ID image for ${shortId}`}
+                          aria-label={`Open ID image for ${row.shortCustomerId}`}
                         >
                           <Image
-                            src={idImg}
-                            alt={`Customer ${shortId}`}
+                            src={row.idImageSrc}
+                            alt={`Customer ${row.shortCustomerId}`}
                             width={40}
                             height={40}
                             className="h-10 w-10 rounded-lg"
                           />
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-mono text-zinc-300">{shortId}</td>
+                      <td className="px-4 py-3 font-mono text-zinc-300">{row.shortCustomerId}</td>
                       <td className="px-4 py-3 font-medium text-zinc-100">{row.name}</td>
                       <td className="px-4 py-3 text-zinc-300">{row.phone}</td>
                       <td className="px-4 py-3 text-zinc-300">{row.bike_id}</td>
@@ -714,7 +797,7 @@ export default function Dashboard() {
                           {row.is_blocked ? "Blocked" : isActive ? "Active" : "Ended"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-zinc-500">{created}</td>
+                      <td className="px-4 py-3 text-zinc-500">{row.createdLabel}</td>
                     </tr>
                   );
                 })}
@@ -722,6 +805,24 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
+        {hasMoreAllCustomers ? (
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              disabled={isLoadingMoreCustomers}
+              onClick={async () => {
+                const nextPage = allCustomersPage + 1;
+                setIsLoadingMoreCustomers(true);
+                await loadAllCustomersPage(nextPage, true);
+                setAllCustomersPage(nextPage);
+                setIsLoadingMoreCustomers(false);
+              }}
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-xs text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoadingMoreCustomers ? "Loading..." : "Load More"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {previewImage ? (

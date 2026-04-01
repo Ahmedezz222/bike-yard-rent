@@ -59,12 +59,44 @@ function AuthGate({ children }) {
                 setIsLoading(false);
                 return;
             }
-            __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.getSession().then({
-                "AuthGate.useEffect": ({ data })=>{
-                    setSession(data.session ?? null);
-                    setIsLoading(false);
+            let isMounted = true;
+            const isRefreshTokenNotFoundError = {
+                "AuthGate.useEffect.isRefreshTokenNotFoundError": (err)=>String(err?.message ?? "").toLowerCase().includes("refresh token not found")
+            }["AuthGate.useEffect.isRefreshTokenNotFoundError"];
+            const bootstrapSession = {
+                "AuthGate.useEffect.bootstrapSession": async ()=>{
+                    try {
+                        const { data, error: sessionError } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.getSession();
+                        if (sessionError) {
+                            if (isRefreshTokenNotFoundError(sessionError)) {
+                                // Stale persisted token: clear local auth storage and continue as signed out.
+                                await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.signOut({
+                                    scope: "local"
+                                });
+                                if (isMounted) setError("");
+                            } else if (isMounted) {
+                                setError(sessionError.message || "Failed to restore session.");
+                            }
+                        }
+                        if (isMounted) setSession(data?.session ?? null);
+                    } catch (err) {
+                        if (isRefreshTokenNotFoundError(err)) {
+                            await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.signOut({
+                                scope: "local"
+                            });
+                            if (isMounted) {
+                                setSession(null);
+                                setError("");
+                            }
+                        } else if (isMounted) {
+                            setError(err?.message ? String(err.message) : "Failed to restore session.");
+                        }
+                    } finally{
+                        if (isMounted) setIsLoading(false);
+                    }
                 }
-            }["AuthGate.useEffect"]);
+            }["AuthGate.useEffect.bootstrapSession"];
+            bootstrapSession();
             const { data: authListener } = __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.onAuthStateChange({
                 "AuthGate.useEffect": (_event, nextSession)=>{
                     setSession(nextSession ?? null);
@@ -72,6 +104,7 @@ function AuthGate({ children }) {
             }["AuthGate.useEffect"]);
             return ({
                 "AuthGate.useEffect": ()=>{
+                    isMounted = false;
                     authListener.subscription.unsubscribe();
                 }
             })["AuthGate.useEffect"];
@@ -103,7 +136,12 @@ function AuthGate({ children }) {
     }
     async function onSignOut() {
         if (!__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isConfigured"] || !__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"]) return;
-        await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.signOut();
+        const { error: signOutError } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.signOut();
+        if (signOutError) {
+            await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].auth.signOut({
+                scope: "local"
+            });
+        }
     }
     if (isLoading) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -113,12 +151,12 @@ function AuthGate({ children }) {
                 children: "Loading..."
             }, void 0, false, {
                 fileName: "[project]/app/AuthGate.jsx",
-                lineNumber: 72,
+                lineNumber: 105,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/app/AuthGate.jsx",
-            lineNumber: 71,
+            lineNumber: 104,
             columnNumber: 7
         }, this);
     }
@@ -136,7 +174,7 @@ function AuthGate({ children }) {
                             children: "Login"
                         }, void 0, false, {
                             fileName: "[project]/app/AuthGate.jsx",
-                            lineNumber: 85,
+                            lineNumber: 118,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -144,7 +182,7 @@ function AuthGate({ children }) {
                             children: "Sign in to open the dashboard."
                         }, void 0, false, {
                             fileName: "[project]/app/AuthGate.jsx",
-                            lineNumber: 86,
+                            lineNumber: 119,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -157,7 +195,7 @@ function AuthGate({ children }) {
                                             children: "Email"
                                         }, void 0, false, {
                                             fileName: "[project]/app/AuthGate.jsx",
-                                            lineNumber: 90,
+                                            lineNumber: 123,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -169,13 +207,13 @@ function AuthGate({ children }) {
                                             autoComplete: "email"
                                         }, void 0, false, {
                                             fileName: "[project]/app/AuthGate.jsx",
-                                            lineNumber: 91,
+                                            lineNumber: 124,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/AuthGate.jsx",
-                                    lineNumber: 89,
+                                    lineNumber: 122,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -185,7 +223,7 @@ function AuthGate({ children }) {
                                             children: "Password"
                                         }, void 0, false, {
                                             fileName: "[project]/app/AuthGate.jsx",
-                                            lineNumber: 102,
+                                            lineNumber: 135,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -197,19 +235,19 @@ function AuthGate({ children }) {
                                             autoComplete: "current-password"
                                         }, void 0, false, {
                                             fileName: "[project]/app/AuthGate.jsx",
-                                            lineNumber: 103,
+                                            lineNumber: 136,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/AuthGate.jsx",
-                                    lineNumber: 101,
+                                    lineNumber: 134,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/AuthGate.jsx",
-                            lineNumber: 88,
+                            lineNumber: 121,
                             columnNumber: 13
                         }, this),
                         error ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -217,7 +255,7 @@ function AuthGate({ children }) {
                             children: error
                         }, void 0, false, {
                             fileName: "[project]/app/AuthGate.jsx",
-                            lineNumber: 115,
+                            lineNumber: 148,
                             columnNumber: 15
                         }, this) : null,
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -227,23 +265,23 @@ function AuthGate({ children }) {
                             children: isSigningIn ? "Signing in..." : "Login"
                         }, void 0, false, {
                             fileName: "[project]/app/AuthGate.jsx",
-                            lineNumber: 120,
+                            lineNumber: 153,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/AuthGate.jsx",
-                    lineNumber: 81,
+                    lineNumber: 114,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/AuthGate.jsx",
-                lineNumber: 80,
+                lineNumber: 113,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/app/AuthGate.jsx",
-            lineNumber: 79,
+            lineNumber: 112,
             columnNumber: 7
         }, this);
     }
@@ -258,12 +296,12 @@ function AuthGate({ children }) {
                     children: "Logout"
                 }, void 0, false, {
                     fileName: "[project]/app/AuthGate.jsx",
-                    lineNumber: 136,
+                    lineNumber: 169,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/AuthGate.jsx",
-                lineNumber: 135,
+                lineNumber: 168,
                 columnNumber: 7
             }, this),
             children
@@ -294,7 +332,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$re
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$user$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__User$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/user.js [app-client] (ecmascript) <export default as User>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/lib/supabaseClient.js [app-client] (ecmascript)");
 ;
-var _s = __turbopack_context__.k.signature();
+var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature();
 "use client";
 ;
 ;
@@ -330,6 +368,41 @@ function customerIdImageDataUri(id) {
   `;
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
+const ALL_CUSTOMERS_PAGE_SIZE = 100;
+const CUSTOMER_SELECT_FIELDS = "id, created_at, name, phone, bike_id, customer_id, customer_id_image, status, is_blocked";
+function mapCustomerRow(row) {
+    const createdLabel = row.created_at ? new Date(row.created_at).toLocaleString() : "";
+    const shortCustomerId = row.customer_id || formatCustomerId(row.id);
+    const idImageSrc = row.customer_id_image || customerIdImageDataUri(row.id);
+    return {
+        ...row,
+        createdLabel,
+        shortCustomerId,
+        idImageSrc,
+        activeSearchBlob: `${row.name ?? ""} ${row.phone ?? ""} ${row.bike_id ?? ""}`.toLowerCase(),
+        allSearchBlob: `${row.name ?? ""} ${row.phone ?? ""} ${row.bike_id ?? ""} ${row.customer_id ?? ""}`.toLowerCase()
+    };
+}
+const ElapsedTimer = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["memo"])(_s(function ElapsedTimer({ createdAt }) {
+    _s();
+    const [nowMs, setNowMs] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])({
+        "ElapsedTimer.ElapsedTimer.useState": ()=>Date.now()
+    }["ElapsedTimer.ElapsedTimer.useState"]);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "ElapsedTimer.ElapsedTimer.useEffect": ()=>{
+            const timer = setInterval({
+                "ElapsedTimer.ElapsedTimer.useEffect.timer": ()=>setNowMs(Date.now())
+            }["ElapsedTimer.ElapsedTimer.useEffect.timer"], 1000);
+            return ({
+                "ElapsedTimer.ElapsedTimer.useEffect": ()=>clearInterval(timer)
+            })["ElapsedTimer.ElapsedTimer.useEffect"];
+        }
+    }["ElapsedTimer.ElapsedTimer.useEffect"], []);
+    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
+        children: formatElapsedTime(createdAt, nowMs)
+    }, void 0, false);
+}, "HiJeZYpOZGIKGUPEpEBTx8Xjm50="));
+_c = ElapsedTimer;
 function toDashboardError(err, fallbackMessage) {
     const raw = err?.message ? String(err.message) : "";
     if (raw.toLowerCase().includes("could not find the table 'public.customers'")) {
@@ -347,7 +420,7 @@ function toDashboardError(err, fallbackMessage) {
     return raw || fallbackMessage;
 }
 function Dashboard() {
-    _s();
+    _s1();
     const nameInputRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
     const [name, setName] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     const [phone, setPhone] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
@@ -363,10 +436,11 @@ function Dashboard() {
     const [isLoadingRentals, setIsLoadingRentals] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(true);
     const [activeRentals, setActiveRentals] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
     const [allCustomers, setAllCustomers] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [allCustomersPage, setAllCustomersPage] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(1);
+    const [hasMoreAllCustomers, setHasMoreAllCustomers] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [isLoadingMoreCustomers, setIsLoadingMoreCustomers] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
     const [searchTerm, setSearchTerm] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     const [allCustomersSearch, setAllCustomersSearch] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
-    const [mounted, setMounted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
-    const [nowMs, setNowMs] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(0);
     const [previewImage, setPreviewImage] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     const [previewTitle, setPreviewTitle] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     const [selectedCustomer, setSelectedCustomer] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
@@ -383,11 +457,11 @@ function Dashboard() {
             try {
                 setIsLoadingRentals(true);
                 setSubmitError("");
-                const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").select("id, created_at, name, phone, bike_id, customer_id, customer_id_image, is_blocked").eq("status", true).eq("is_blocked", false).order("created_at", {
+                const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").select(CUSTOMER_SELECT_FIELDS).eq("status", true).eq("is_blocked", false).order("created_at", {
                     ascending: false
                 });
                 if (error) throw error;
-                setActiveRentals(data ?? []);
+                setActiveRentals((data ?? []).map(mapCustomerRow));
             } catch (err) {
                 setSubmitError(toDashboardError(err, "Failed to load active rentals."));
                 setActiveRentals([]);
@@ -396,23 +470,32 @@ function Dashboard() {
             }
         }
     }["Dashboard.useCallback[loadActiveRentals]"], []);
-    const loadAllCustomers = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
-        "Dashboard.useCallback[loadAllCustomers]": async ()=>{
+    const loadAllCustomersPage = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useCallback"])({
+        "Dashboard.useCallback[loadAllCustomersPage]": async (page, append = false)=>{
             if (!__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isConfigured"] || !__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"]) {
                 setAllCustomers([]);
                 return;
             }
             try {
-                const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").select("id, created_at, name, phone, bike_id, customer_id, customer_id_image, status, is_blocked").order("created_at", {
+                const from = (page - 1) * ALL_CUSTOMERS_PAGE_SIZE;
+                const to = from + ALL_CUSTOMERS_PAGE_SIZE - 1;
+                const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").select(CUSTOMER_SELECT_FIELDS).order("created_at", {
                     ascending: false
                 });
                 if (error) throw error;
-                setAllCustomers(data ?? []);
+                const rows = (data ?? []).slice(from, to + 1).map(mapCustomerRow);
+                setAllCustomers({
+                    "Dashboard.useCallback[loadAllCustomersPage]": (prev)=>append ? [
+                            ...prev,
+                            ...rows
+                        ] : rows
+                }["Dashboard.useCallback[loadAllCustomersPage]"]);
+                setHasMoreAllCustomers((data ?? []).length > to + 1);
             } catch  {
-                setAllCustomers([]);
+                if (!append) setAllCustomers([]);
             }
         }
-    }["Dashboard.useCallback[loadAllCustomers]"], []);
+    }["Dashboard.useCallback[loadAllCustomersPage]"], []);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "Dashboard.useEffect": ()=>{
             // Ensure ultra-fast flow: start typing immediately.
@@ -421,61 +504,114 @@ function Dashboard() {
     }["Dashboard.useEffect"], []);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "Dashboard.useEffect": ()=>{
-            setMounted(true);
-            setNowMs(Date.now());
-            const timer = setInterval({
-                "Dashboard.useEffect.timer": ()=>{
-                    setNowMs(Date.now());
-                }
-            }["Dashboard.useEffect.timer"], 1000);
-            return ({
-                "Dashboard.useEffect": ()=>clearInterval(timer)
-            })["Dashboard.useEffect"];
-        }
-    }["Dashboard.useEffect"], []);
-    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
-        "Dashboard.useEffect": ()=>{
-            // Initial load + live updates.
             loadActiveRentals();
-            loadAllCustomers();
+            loadAllCustomersPage(1, false);
             if (!__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["isConfigured"] || !__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"]) return;
+            let refreshTimer = null;
+            const scheduleRefresh = {
+                "Dashboard.useEffect.scheduleRefresh": ()=>{
+                    if (refreshTimer) clearTimeout(refreshTimer);
+                    refreshTimer = setTimeout({
+                        "Dashboard.useEffect.scheduleRefresh": ()=>{
+                            loadActiveRentals();
+                            loadAllCustomersPage(1, false);
+                            setAllCustomersPage(1);
+                        }
+                    }["Dashboard.useEffect.scheduleRefresh"], 250);
+                }
+            }["Dashboard.useEffect.scheduleRefresh"];
+            const applyRealtimeChange = {
+                "Dashboard.useEffect.applyRealtimeChange": (payload)=>{
+                    const eventType = payload?.eventType;
+                    const nextRow = payload?.new?.id ? mapCustomerRow(payload.new) : null;
+                    const oldRow = payload?.old;
+                    setAllCustomers({
+                        "Dashboard.useEffect.applyRealtimeChange": (prev)=>{
+                            if (eventType === "DELETE" && oldRow?.id) {
+                                return prev.filter({
+                                    "Dashboard.useEffect.applyRealtimeChange": (row)=>row.id !== oldRow.id
+                                }["Dashboard.useEffect.applyRealtimeChange"]);
+                            }
+                            if ((eventType === "INSERT" || eventType === "UPDATE") && nextRow) {
+                                const idx = prev.findIndex({
+                                    "Dashboard.useEffect.applyRealtimeChange.idx": (row)=>row.id === nextRow.id
+                                }["Dashboard.useEffect.applyRealtimeChange.idx"]);
+                                if (idx === -1) return [
+                                    nextRow,
+                                    ...prev
+                                ].slice(0, allCustomersPage * ALL_CUSTOMERS_PAGE_SIZE);
+                                const copy = [
+                                    ...prev
+                                ];
+                                copy[idx] = nextRow;
+                                return copy;
+                            }
+                            return prev;
+                        }
+                    }["Dashboard.useEffect.applyRealtimeChange"]);
+                    setActiveRentals({
+                        "Dashboard.useEffect.applyRealtimeChange": (prev)=>{
+                            if (eventType === "DELETE" && oldRow?.id) {
+                                return prev.filter({
+                                    "Dashboard.useEffect.applyRealtimeChange": (row)=>row.id !== oldRow.id
+                                }["Dashboard.useEffect.applyRealtimeChange"]);
+                            }
+                            if ((eventType === "INSERT" || eventType === "UPDATE") && nextRow) {
+                                const shouldBeActive = Boolean(nextRow.status) && !Boolean(nextRow.is_blocked);
+                                const idx = prev.findIndex({
+                                    "Dashboard.useEffect.applyRealtimeChange.idx": (row)=>row.id === nextRow.id
+                                }["Dashboard.useEffect.applyRealtimeChange.idx"]);
+                                if (!shouldBeActive) return idx === -1 ? prev : prev.filter({
+                                    "Dashboard.useEffect.applyRealtimeChange": (row)=>row.id !== nextRow.id
+                                }["Dashboard.useEffect.applyRealtimeChange"]);
+                                if (idx === -1) return [
+                                    nextRow,
+                                    ...prev
+                                ];
+                                const copy = [
+                                    ...prev
+                                ];
+                                copy[idx] = nextRow;
+                                return copy;
+                            }
+                            return prev;
+                        }
+                    }["Dashboard.useEffect.applyRealtimeChange"]);
+                    scheduleRefresh();
+                }
+            }["Dashboard.useEffect.applyRealtimeChange"];
             const channel = __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].channel("customers-active-rentals").on("postgres_changes", {
                 event: "*",
                 schema: "public",
                 table: "customers"
-            }, {
-                "Dashboard.useEffect.channel": ()=>{
-                    // Simple + robust: refresh list on any change.
-                    loadActiveRentals();
-                    loadAllCustomers();
-                }
-            }["Dashboard.useEffect.channel"]).subscribe();
+            }, applyRealtimeChange).subscribe();
             return ({
                 "Dashboard.useEffect": ()=>{
+                    if (refreshTimer) clearTimeout(refreshTimer);
                     __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].removeChannel(channel);
                 }
             })["Dashboard.useEffect"];
         }
     }["Dashboard.useEffect"], [
+        allCustomersPage,
         loadActiveRentals,
-        loadAllCustomers
+        loadAllCustomersPage
     ]);
     const quickAddDisabled = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
         "Dashboard.useMemo[quickAddDisabled]": ()=>isSubmitting
     }["Dashboard.useMemo[quickAddDisabled]"], [
         isSubmitting
     ]);
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    const normalizedAllCustomersSearch = allCustomersSearch.trim().toLowerCase();
+    const deferredSearchTerm = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useDeferredValue"])(searchTerm);
+    const deferredAllCustomersSearch = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useDeferredValue"])(allCustomersSearch);
+    const normalizedSearch = deferredSearchTerm.trim().toLowerCase();
+    const normalizedAllCustomersSearch = deferredAllCustomersSearch.trim().toLowerCase();
     const filteredActiveRentals = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
         "Dashboard.useMemo[filteredActiveRentals]": ()=>{
             if (!normalizedSearch) return activeRentals;
             return activeRentals.filter({
                 "Dashboard.useMemo[filteredActiveRentals]": (row)=>{
-                    const nameValue = String(row.name ?? "").toLowerCase();
-                    const phoneValue = String(row.phone ?? "").toLowerCase();
-                    const bikeValue = String(row.bike_id ?? "").toLowerCase();
-                    return nameValue.includes(normalizedSearch) || phoneValue.includes(normalizedSearch) || bikeValue.includes(normalizedSearch);
+                    return row.activeSearchBlob.includes(normalizedSearch);
                 }
             }["Dashboard.useMemo[filteredActiveRentals]"]);
         }
@@ -488,11 +624,7 @@ function Dashboard() {
             if (!normalizedAllCustomersSearch) return allCustomers;
             return allCustomers.filter({
                 "Dashboard.useMemo[filteredAllCustomers]": (row)=>{
-                    const nameValue = String(row.name ?? "").toLowerCase();
-                    const phoneValue = String(row.phone ?? "").toLowerCase();
-                    const bikeValue = String(row.bike_id ?? "").toLowerCase();
-                    const customerIdValue = String(row.customer_id ?? "").toLowerCase();
-                    return nameValue.includes(normalizedAllCustomersSearch) || phoneValue.includes(normalizedAllCustomersSearch) || bikeValue.includes(normalizedAllCustomersSearch) || customerIdValue.includes(normalizedAllCustomersSearch);
+                    return row.allSearchBlob.includes(normalizedAllCustomersSearch);
                 }
             }["Dashboard.useMemo[filteredAllCustomers]"]);
         }
@@ -544,8 +676,19 @@ function Dashboard() {
                 status: true,
                 created_at: new Date().toISOString()
             };
-            const { error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").insert(payload);
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").insert(payload).select(CUSTOMER_SELECT_FIELDS).single();
             if (error) throw error;
+            if (data?.id) {
+                const mapped = mapCustomerRow(data);
+                setAllCustomers((prev)=>[
+                        mapped,
+                        ...prev
+                    ].slice(0, allCustomersPage * ALL_CUSTOMERS_PAGE_SIZE));
+                if (mapped.status && !mapped.is_blocked) setActiveRentals((prev)=>[
+                        mapped,
+                        ...prev
+                    ]);
+            }
             // Clear only the entry fields; the list will refresh via realtime.
             setName("");
             setPhone("");
@@ -554,7 +697,6 @@ function Dashboard() {
             setCustomerIdImage("");
             // Keep the flow fast for the next customer.
             setTimeout(()=>nameInputRef.current?.focus(), 0);
-            await loadAllCustomers();
         } catch (err) {
             setSubmitError(toDashboardError(err, "Failed to add customer."));
         } finally{
@@ -566,12 +708,15 @@ function Dashboard() {
         try {
             setSubmitError("");
             setEndingRentalId(rentalId);
-            const { error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
                 status: false
-            }).eq("id", rentalId);
+            }).eq("id", rentalId).select(CUSTOMER_SELECT_FIELDS).single();
             if (error) throw error;
-            await loadActiveRentals();
-            await loadAllCustomers();
+            if (data?.id) {
+                const mapped = mapCustomerRow(data);
+                setAllCustomers((prev)=>prev.map((row)=>row.id === mapped.id ? mapped : row));
+                setActiveRentals((prev)=>prev.filter((row)=>row.id !== mapped.id));
+            }
         } catch (err) {
             setSubmitError(toDashboardError(err, "Failed to end rental."));
         } finally{
@@ -605,16 +750,32 @@ function Dashboard() {
         try {
             setActionLoading(true);
             setSubmitError("");
-            const { error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
                 status: true,
                 bike_id: selectedBikeId.trim() || selectedCustomer.bike_id || "",
                 is_blocked: false,
                 created_at: new Date().toISOString()
-            }).eq("id", selectedCustomer.id);
+            }).eq("id", selectedCustomer.id).select(CUSTOMER_SELECT_FIELDS).single();
             if (error) throw error;
+            if (data?.id) {
+                const mapped = mapCustomerRow(data);
+                setAllCustomers((prev)=>prev.map((row)=>row.id === mapped.id ? mapped : row));
+                if (mapped.status && !mapped.is_blocked) {
+                    setActiveRentals((prev)=>{
+                        const idx = prev.findIndex((row)=>row.id === mapped.id);
+                        if (idx === -1) return [
+                            mapped,
+                            ...prev
+                        ];
+                        const copy = [
+                            ...prev
+                        ];
+                        copy[idx] = mapped;
+                        return copy;
+                    });
+                }
+            }
             setSelectedCustomer(null);
-            await loadActiveRentals();
-            await loadAllCustomers();
         } catch (err) {
             setSubmitError(toDashboardError(err, "Failed to restart rental."));
         } finally{
@@ -626,14 +787,17 @@ function Dashboard() {
         try {
             setActionLoading(true);
             setSubmitError("");
-            const { error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
                 is_blocked: true,
                 status: false
-            }).eq("id", selectedCustomer.id);
+            }).eq("id", selectedCustomer.id).select(CUSTOMER_SELECT_FIELDS).single();
             if (error) throw error;
+            if (data?.id) {
+                const mapped = mapCustomerRow(data);
+                setAllCustomers((prev)=>prev.map((row)=>row.id === mapped.id ? mapped : row));
+                setActiveRentals((prev)=>prev.filter((row)=>row.id !== mapped.id));
+            }
             setSelectedCustomer(null);
-            await loadActiveRentals();
-            await loadAllCustomers();
         } catch (err) {
             setSubmitError(toDashboardError(err, "Failed to block user."));
         } finally{
@@ -645,16 +809,15 @@ function Dashboard() {
         try {
             setActionLoading(true);
             setSubmitError("");
-            const { error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
+            const { data, error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").update({
                 is_blocked: false
-            }).eq("id", selectedCustomer.id);
+            }).eq("id", selectedCustomer.id).select(CUSTOMER_SELECT_FIELDS).single();
             if (error) throw error;
-            setSelectedCustomer((prev)=>prev ? {
-                    ...prev,
-                    is_blocked: false
-                } : prev);
-            await loadActiveRentals();
-            await loadAllCustomers();
+            if (data?.id) {
+                const mapped = mapCustomerRow(data);
+                setAllCustomers((prev)=>prev.map((row)=>row.id === mapped.id ? mapped : row));
+                setSelectedCustomer(mapped);
+            }
         } catch (err) {
             setSubmitError(toDashboardError(err, "Failed to unblock user."));
         } finally{
@@ -670,9 +833,9 @@ function Dashboard() {
             setSubmitError("");
             const { error } = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$supabaseClient$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].from("customers").delete().eq("id", selectedCustomer.id);
             if (error) throw error;
+            setAllCustomers((prev)=>prev.filter((row)=>row.id !== selectedCustomer.id));
+            setActiveRentals((prev)=>prev.filter((row)=>row.id !== selectedCustomer.id));
             setSelectedCustomer(null);
-            await loadActiveRentals();
-            await loadAllCustomers();
         } catch (err) {
             setSubmitError(toDashboardError(err, "Failed to delete customer."));
         } finally{
@@ -695,7 +858,7 @@ function Dashboard() {
                                         children: "Bike Rental Fast-Entry"
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 437,
+                                        lineNumber: 525,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -703,13 +866,13 @@ function Dashboard() {
                                         children: "Quick-add a customer and instantly see active rentals update in real time."
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 438,
+                                        lineNumber: 526,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 436,
+                                lineNumber: 524,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -720,7 +883,7 @@ function Dashboard() {
                                         children: "Active rentals"
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 443,
+                                        lineNumber: 531,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -728,19 +891,19 @@ function Dashboard() {
                                         children: activeRentals.length
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 444,
+                                        lineNumber: 532,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 442,
+                                lineNumber: 530,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                        lineNumber: 435,
+                        lineNumber: 523,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("form", {
@@ -758,7 +921,7 @@ function Dashboard() {
                                                 children: "Name"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 454,
+                                                lineNumber: 542,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -768,7 +931,7 @@ function Dashboard() {
                                                         className: "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 456,
+                                                        lineNumber: 544,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -780,13 +943,13 @@ function Dashboard() {
                                                         "aria-label": "Name"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 457,
+                                                        lineNumber: 545,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 455,
+                                                lineNumber: 543,
                                                 columnNumber: 15
                                             }, this),
                                             nameError ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -794,13 +957,13 @@ function Dashboard() {
                                                 children: nameError
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 466,
+                                                lineNumber: 554,
                                                 columnNumber: 28
                                             }, this) : null
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 453,
+                                        lineNumber: 541,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -811,7 +974,7 @@ function Dashboard() {
                                                 children: "Phone Number"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 470,
+                                                lineNumber: 558,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -821,7 +984,7 @@ function Dashboard() {
                                                         className: "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 472,
+                                                        lineNumber: 560,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -834,13 +997,13 @@ function Dashboard() {
                                                         "aria-label": "Phone Number"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 473,
+                                                        lineNumber: 561,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 471,
+                                                lineNumber: 559,
                                                 columnNumber: 15
                                             }, this),
                                             phoneError ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -848,13 +1011,13 @@ function Dashboard() {
                                                 children: phoneError
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 483,
+                                                lineNumber: 571,
                                                 columnNumber: 29
                                             }, this) : null
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 469,
+                                        lineNumber: 557,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -865,7 +1028,7 @@ function Dashboard() {
                                                 children: "Customer ID"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 487,
+                                                lineNumber: 575,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -875,7 +1038,7 @@ function Dashboard() {
                                                         className: "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 489,
+                                                        lineNumber: 577,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -886,13 +1049,13 @@ function Dashboard() {
                                                         "aria-label": "Customer ID"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 490,
+                                                        lineNumber: 578,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 488,
+                                                lineNumber: 576,
                                                 columnNumber: 15
                                             }, this),
                                             customerIdError ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -900,13 +1063,13 @@ function Dashboard() {
                                                 children: customerIdError
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 499,
+                                                lineNumber: 587,
                                                 columnNumber: 17
                                             }, this) : null
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 486,
+                                        lineNumber: 574,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -917,7 +1080,7 @@ function Dashboard() {
                                                 children: "Customer ID Image"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 504,
+                                                lineNumber: 592,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
@@ -927,7 +1090,7 @@ function Dashboard() {
                                                         className: "h-4 w-4 text-zinc-400"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 506,
+                                                        lineNumber: 594,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -935,7 +1098,7 @@ function Dashboard() {
                                                         children: customerIdImage ? "Image selected" : "Upload ID image"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 507,
+                                                        lineNumber: 595,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -946,19 +1109,19 @@ function Dashboard() {
                                                         "aria-label": "Customer ID Image Upload"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 510,
+                                                        lineNumber: 598,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 505,
+                                                lineNumber: 593,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 503,
+                                        lineNumber: 591,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -969,7 +1132,7 @@ function Dashboard() {
                                                 children: "Bike ID"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 521,
+                                                lineNumber: 609,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -979,7 +1142,7 @@ function Dashboard() {
                                                         className: "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 523,
+                                                        lineNumber: 611,
                                                         columnNumber: 17
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -990,19 +1153,19 @@ function Dashboard() {
                                                         "aria-label": "Bike ID"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                        lineNumber: 524,
+                                                        lineNumber: 612,
                                                         columnNumber: 17
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 522,
+                                                lineNumber: 610,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 520,
+                                        lineNumber: 608,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1012,13 +1175,13 @@ function Dashboard() {
                                         children: isSubmitting ? "Adding..." : "Quick Add"
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 534,
+                                        lineNumber: 622,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 452,
+                                lineNumber: 540,
                                 columnNumber: 11
                             }, this),
                             submitError ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1026,13 +1189,13 @@ function Dashboard() {
                                 children: submitError
                             }, void 0, false, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 544,
+                                lineNumber: 632,
                                 columnNumber: 13
                             }, this) : null
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                        lineNumber: 448,
+                        lineNumber: 536,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1043,7 +1206,7 @@ function Dashboard() {
                                 children: "Active Rentals"
                             }, void 0, false, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 551,
+                                lineNumber: 639,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1057,7 +1220,7 @@ function Dashboard() {
                                         "aria-label": "Search Customer"
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 553,
+                                        lineNumber: 641,
                                         columnNumber: 13
                                     }, this),
                                     isLoadingRentals ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1065,19 +1228,19 @@ function Dashboard() {
                                         children: "Loading..."
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 560,
+                                        lineNumber: 648,
                                         columnNumber: 33
                                     }, this) : null
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 552,
+                                lineNumber: 640,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                        lineNumber: 550,
+                        lineNumber: 638,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1096,7 +1259,7 @@ function Dashboard() {
                                                     children: "ID Image"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 569,
+                                                    lineNumber: 657,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1104,7 +1267,7 @@ function Dashboard() {
                                                     children: "Customer ID"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 570,
+                                                    lineNumber: 658,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1112,7 +1275,7 @@ function Dashboard() {
                                                     children: "Name"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 571,
+                                                    lineNumber: 659,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1120,7 +1283,7 @@ function Dashboard() {
                                                     children: "Phone"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 572,
+                                                    lineNumber: 660,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1128,7 +1291,7 @@ function Dashboard() {
                                                     children: "Bike ID"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 573,
+                                                    lineNumber: 661,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1136,7 +1299,7 @@ function Dashboard() {
                                                     children: "Rent Timer"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 574,
+                                                    lineNumber: 662,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1144,7 +1307,7 @@ function Dashboard() {
                                                     children: "Created"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 575,
+                                                    lineNumber: 663,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1152,18 +1315,18 @@ function Dashboard() {
                                                     children: "Action"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 576,
+                                                    lineNumber: 664,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                            lineNumber: 568,
+                                            lineNumber: 656,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 567,
+                                        lineNumber: 655,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -1175,20 +1338,16 @@ function Dashboard() {
                                                     children: normalizedSearch ? "No matching customers found." : "No active rentals yet."
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 582,
+                                                    lineNumber: 670,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 581,
+                                                lineNumber: 669,
                                                 columnNumber: 19
                                             }, this) : null,
                                             filteredActiveRentals.map((row)=>{
-                                                const created = row.created_at ? new Date(row.created_at).toLocaleString() : "";
-                                                const elapsed = mounted ? formatElapsedTime(row.created_at, nowMs) : "--";
                                                 const isEndingThisRow = endingRentalId === row.id;
-                                                const shortId = row.customer_id || formatCustomerId(row.id);
-                                                const idImg = row.customer_id_image || customerIdImageDataUri(row.id);
                                                 return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tr", {
                                                     className: "border-t border-zinc-800/60 hover:bg-zinc-950/30",
                                                     children: [
@@ -1196,36 +1355,36 @@ function Dashboard() {
                                                             className: "px-4 py-3",
                                                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                                                 type: "button",
-                                                                onClick: ()=>openImagePreview(idImg, `Customer ${shortId}`),
+                                                                onClick: ()=>openImagePreview(row.idImageSrc, `Customer ${row.shortCustomerId}`),
                                                                 className: "rounded-lg border border-zinc-700 transition hover:border-zinc-500",
-                                                                "aria-label": `Open ID image for ${shortId}`,
+                                                                "aria-label": `Open ID image for ${row.shortCustomerId}`,
                                                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                                                    src: idImg,
-                                                                    alt: `Customer ${shortId}`,
+                                                                    src: row.idImageSrc,
+                                                                    alt: `Customer ${row.shortCustomerId}`,
                                                                     width: 40,
                                                                     height: 40,
                                                                     className: "h-10 w-10 rounded-lg"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                                    lineNumber: 603,
+                                                                    lineNumber: 687,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                                lineNumber: 597,
+                                                                lineNumber: 681,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 596,
+                                                            lineNumber: 680,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
                                                             className: "px-4 py-3 font-mono text-zinc-300",
-                                                            children: shortId
+                                                            children: row.shortCustomerId
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 612,
+                                                            lineNumber: 696,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1233,7 +1392,7 @@ function Dashboard() {
                                                             children: row.name
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 613,
+                                                            lineNumber: 697,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1241,7 +1400,7 @@ function Dashboard() {
                                                             children: row.phone
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 614,
+                                                            lineNumber: 698,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1249,23 +1408,29 @@ function Dashboard() {
                                                             children: row.bike_id
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 615,
+                                                            lineNumber: 699,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
                                                             className: "px-4 py-3 font-mono text-zinc-200",
-                                                            children: elapsed
+                                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(ElapsedTimer, {
+                                                                createdAt: row.created_at
+                                                            }, void 0, false, {
+                                                                fileName: "[project]/app/dashboard/Dashboard.jsx",
+                                                                lineNumber: 701,
+                                                                columnNumber: 25
+                                                            }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 616,
+                                                            lineNumber: 700,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
                                                             className: "px-4 py-3 text-zinc-500",
-                                                            children: created
+                                                            children: row.createdLabel
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 617,
+                                                            lineNumber: 703,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1278,41 +1443,41 @@ function Dashboard() {
                                                                 children: isEndingThisRow ? "Ending..." : "End Rent"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                                lineNumber: 619,
+                                                                lineNumber: 705,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 618,
+                                                            lineNumber: 704,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, row.id, true, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 595,
+                                                    lineNumber: 679,
                                                     columnNumber: 21
                                                 }, this);
                                             })
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 579,
+                                        lineNumber: 667,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 566,
+                                lineNumber: 654,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 565,
+                            lineNumber: 653,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                        lineNumber: 564,
+                        lineNumber: 652,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1323,7 +1488,7 @@ function Dashboard() {
                                 children: "All Customers (Saved)"
                             }, void 0, false, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 637,
+                                lineNumber: 723,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1337,30 +1502,30 @@ function Dashboard() {
                                         "aria-label": "Search All Customers"
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 639,
+                                        lineNumber: 725,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "text-xs text-zinc-400",
                                         children: [
                                             allCustomers.length,
-                                            " total"
+                                            " loaded"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 646,
+                                        lineNumber: 732,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 638,
+                                lineNumber: 724,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                        lineNumber: 636,
+                        lineNumber: 722,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1379,7 +1544,7 @@ function Dashboard() {
                                                     children: "ID Image"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 655,
+                                                    lineNumber: 741,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1387,7 +1552,7 @@ function Dashboard() {
                                                     children: "Customer ID"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 656,
+                                                    lineNumber: 742,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1395,7 +1560,7 @@ function Dashboard() {
                                                     children: "Name"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 657,
+                                                    lineNumber: 743,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1403,7 +1568,7 @@ function Dashboard() {
                                                     children: "Phone"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 658,
+                                                    lineNumber: 744,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1411,7 +1576,7 @@ function Dashboard() {
                                                     children: "Bike ID"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 659,
+                                                    lineNumber: 745,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1419,7 +1584,7 @@ function Dashboard() {
                                                     children: "Status"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 660,
+                                                    lineNumber: 746,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1427,18 +1592,18 @@ function Dashboard() {
                                                     children: "Created"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 661,
+                                                    lineNumber: 747,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                            lineNumber: 654,
+                                            lineNumber: 740,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 653,
+                                        lineNumber: 739,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -1450,19 +1615,16 @@ function Dashboard() {
                                                     children: "No customers saved yet."
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 667,
+                                                    lineNumber: 753,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                lineNumber: 666,
+                                                lineNumber: 752,
                                                 columnNumber: 19
                                             }, this) : null,
                                             filteredAllCustomers.map((row)=>{
-                                                const created = row.created_at ? new Date(row.created_at).toLocaleString() : "";
                                                 const isActive = Boolean(row.status);
-                                                const shortId = row.customer_id || formatCustomerId(row.id);
-                                                const idImg = row.customer_id_image || customerIdImageDataUri(row.id);
                                                 return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tr", {
                                                     onClick: ()=>onOpenCustomerActions(row),
                                                     className: "cursor-pointer border-t border-zinc-800/60 hover:bg-zinc-950/30",
@@ -1471,36 +1633,36 @@ function Dashboard() {
                                                             className: "px-4 py-3",
                                                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                                                 type: "button",
-                                                                onClick: ()=>openImagePreview(idImg, `Customer ${shortId}`),
+                                                                onClick: ()=>openImagePreview(row.idImageSrc, `Customer ${row.shortCustomerId}`),
                                                                 className: "rounded-lg border border-zinc-700 transition hover:border-zinc-500",
-                                                                "aria-label": `Open ID image for ${shortId}`,
+                                                                "aria-label": `Open ID image for ${row.shortCustomerId}`,
                                                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                                                    src: idImg,
-                                                                    alt: `Customer ${shortId}`,
+                                                                    src: row.idImageSrc,
+                                                                    alt: `Customer ${row.shortCustomerId}`,
                                                                     width: 40,
                                                                     height: 40,
                                                                     className: "h-10 w-10 rounded-lg"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                                    lineNumber: 691,
+                                                                    lineNumber: 774,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                                lineNumber: 685,
+                                                                lineNumber: 768,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 684,
+                                                            lineNumber: 767,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
                                                             className: "px-4 py-3 font-mono text-zinc-300",
-                                                            children: shortId
+                                                            children: row.shortCustomerId
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 700,
+                                                            lineNumber: 783,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1508,7 +1670,7 @@ function Dashboard() {
                                                             children: row.name
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 701,
+                                                            lineNumber: 784,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1516,7 +1678,7 @@ function Dashboard() {
                                                             children: row.phone
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 702,
+                                                            lineNumber: 785,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1524,7 +1686,7 @@ function Dashboard() {
                                                             children: row.bike_id
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 703,
+                                                            lineNumber: 786,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1534,55 +1696,79 @@ function Dashboard() {
                                                                 children: row.is_blocked ? "Blocked" : isActive ? "Active" : "Ended"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                                lineNumber: 705,
+                                                                lineNumber: 788,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 704,
+                                                            lineNumber: 787,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
                                                             className: "px-4 py-3 text-zinc-500",
-                                                            children: created
+                                                            children: row.createdLabel
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                            lineNumber: 717,
+                                                            lineNumber: 800,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, `all-${row.id}`, true, {
                                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                                    lineNumber: 679,
+                                                    lineNumber: 762,
                                                     columnNumber: 21
                                                 }, this);
                                             })
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                        lineNumber: 664,
+                                        lineNumber: 750,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 652,
+                                lineNumber: 738,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 651,
+                            lineNumber: 737,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/dashboard/Dashboard.jsx",
-                        lineNumber: 650,
+                        lineNumber: 736,
                         columnNumber: 9
-                    }, this)
+                    }, this),
+                    hasMoreAllCustomers ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "mt-3 flex justify-center",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                            type: "button",
+                            disabled: isLoadingMoreCustomers,
+                            onClick: async ()=>{
+                                const nextPage = allCustomersPage + 1;
+                                setIsLoadingMoreCustomers(true);
+                                await loadAllCustomersPage(nextPage, true);
+                                setAllCustomersPage(nextPage);
+                                setIsLoadingMoreCustomers(false);
+                            },
+                            className: "rounded-lg border border-zinc-700 px-4 py-2 text-xs text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60",
+                            children: isLoadingMoreCustomers ? "Loading..." : "Load More"
+                        }, void 0, false, {
+                            fileName: "[project]/app/dashboard/Dashboard.jsx",
+                            lineNumber: 810,
+                            columnNumber: 13
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "[project]/app/dashboard/Dashboard.jsx",
+                        lineNumber: 809,
+                        columnNumber: 11
+                    }, this) : null
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                lineNumber: 434,
+                lineNumber: 522,
                 columnNumber: 7
             }, this),
             previewImage ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1598,7 +1784,7 @@ function Dashboard() {
                                     children: previewTitle
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 731,
+                                    lineNumber: 832,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1608,13 +1794,13 @@ function Dashboard() {
                                     children: "Close"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 732,
+                                    lineNumber: 833,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 730,
+                            lineNumber: 831,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1627,23 +1813,23 @@ function Dashboard() {
                                 className: "h-auto max-h-[70vh] w-full rounded-lg object-contain"
                             }, void 0, false, {
                                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                lineNumber: 741,
+                                lineNumber: 842,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 740,
+                            lineNumber: 841,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                    lineNumber: 729,
+                    lineNumber: 830,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                lineNumber: 728,
+                lineNumber: 829,
                 columnNumber: 9
             }, this) : null,
             selectedCustomer ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1659,7 +1845,7 @@ function Dashboard() {
                                     children: "Customer Actions"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 757,
+                                    lineNumber: 858,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1669,13 +1855,13 @@ function Dashboard() {
                                     children: "Close"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 758,
+                                    lineNumber: 859,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 756,
+                            lineNumber: 857,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1688,14 +1874,14 @@ function Dashboard() {
                                             children: "Customer: "
                                         }, void 0, false, {
                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                            lineNumber: 769,
+                                            lineNumber: 870,
                                             columnNumber: 17
                                         }, this),
                                         selectedCustomer.name
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 768,
+                                    lineNumber: 869,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1705,14 +1891,14 @@ function Dashboard() {
                                             children: "Phone: "
                                         }, void 0, false, {
                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                            lineNumber: 773,
+                                            lineNumber: 874,
                                             columnNumber: 17
                                         }, this),
                                         selectedCustomer.phone
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 772,
+                                    lineNumber: 873,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1722,20 +1908,20 @@ function Dashboard() {
                                             children: "Customer ID: "
                                         }, void 0, false, {
                                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                            lineNumber: 777,
+                                            lineNumber: 878,
                                             columnNumber: 17
                                         }, this),
                                         selectedCustomer.customer_id || formatCustomerId(selectedCustomer.id)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 776,
+                                    lineNumber: 877,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 767,
+                            lineNumber: 868,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1746,7 +1932,7 @@ function Dashboard() {
                                     children: "Bike ID"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 783,
+                                    lineNumber: 884,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1756,13 +1942,13 @@ function Dashboard() {
                                     placeholder: "Set bike ID for restart rent"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 784,
+                                    lineNumber: 885,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 782,
+                            lineNumber: 883,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1776,7 +1962,7 @@ function Dashboard() {
                                     children: "Start Rent Again"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 793,
+                                    lineNumber: 894,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1787,7 +1973,7 @@ function Dashboard() {
                                     children: "Block User"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 801,
+                                    lineNumber: 902,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1798,7 +1984,7 @@ function Dashboard() {
                                     children: "Unblock User"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 809,
+                                    lineNumber: 910,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1809,13 +1995,13 @@ function Dashboard() {
                                     children: "Delete Customer"
                                 }, void 0, false, {
                                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                                    lineNumber: 817,
+                                    lineNumber: 918,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 792,
+                            lineNumber: 893,
                             columnNumber: 13
                         }, this),
                         selectedCustomer.is_blocked ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1823,31 +2009,37 @@ function Dashboard() {
                             children: "This customer is blocked. Start Rent Again is disabled."
                         }, void 0, false, {
                             fileName: "[project]/app/dashboard/Dashboard.jsx",
-                            lineNumber: 827,
+                            lineNumber: 928,
                             columnNumber: 15
                         }, this) : null
                     ]
                 }, void 0, true, {
                     fileName: "[project]/app/dashboard/Dashboard.jsx",
-                    lineNumber: 755,
+                    lineNumber: 856,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/app/dashboard/Dashboard.jsx",
-                lineNumber: 754,
+                lineNumber: 855,
                 columnNumber: 9
             }, this) : null
         ]
     }, void 0, true, {
         fileName: "[project]/app/dashboard/Dashboard.jsx",
-        lineNumber: 433,
+        lineNumber: 521,
         columnNumber: 5
     }, this);
 }
-_s(Dashboard, "XyqZehguVo14vitW8kTpQz+GU5w=");
-_c = Dashboard;
-var _c;
-__turbopack_context__.k.register(_c, "Dashboard");
+_s1(Dashboard, "97s1XDM0EoiObJNvLwnt3LTeOzA=", false, function() {
+    return [
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useDeferredValue"],
+        __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useDeferredValue"]
+    ];
+});
+_c1 = Dashboard;
+var _c, _c1;
+__turbopack_context__.k.register(_c, "ElapsedTimer");
+__turbopack_context__.k.register(_c1, "Dashboard");
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
 }

@@ -18,16 +18,46 @@ export default function AuthGate({ children }) {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session ?? null);
-      setIsLoading(false);
-    });
+    let isMounted = true;
+    const isRefreshTokenNotFoundError = (err) =>
+      String(err?.message ?? "").toLowerCase().includes("refresh token not found");
+
+    const bootstrapSession = async () => {
+      try {
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          if (isRefreshTokenNotFoundError(sessionError)) {
+            // Stale persisted token: clear local auth storage and continue as signed out.
+            await supabase.auth.signOut({ scope: "local" });
+            if (isMounted) setError("");
+          } else if (isMounted) {
+            setError(sessionError.message || "Failed to restore session.");
+          }
+        }
+        if (isMounted) setSession(data?.session ?? null);
+      } catch (err) {
+        if (isRefreshTokenNotFoundError(err)) {
+          await supabase.auth.signOut({ scope: "local" });
+          if (isMounted) {
+            setSession(null);
+            setError("");
+          }
+        } else if (isMounted) {
+          setError(err?.message ? String(err.message) : "Failed to restore session.");
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    bootstrapSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession ?? null);
     });
 
     return () => {
+      isMounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -63,7 +93,10 @@ export default function AuthGate({ children }) {
 
   async function onSignOut() {
     if (!isConfigured || !supabase) return;
-    await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      await supabase.auth.signOut({ scope: "local" });
+    }
   }
 
   if (isLoading) {
