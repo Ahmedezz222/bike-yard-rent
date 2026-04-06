@@ -54,13 +54,17 @@ function customerIdImageDataUri(id) {
 }
 
 const ALL_CUSTOMERS_PAGE_SIZE = 100;
-const CUSTOMER_SELECT_FIELDS =
+const CUSTOMER_LIST_FIELDS =
+  "id, created_at, name, phone, bike_id, customer_id, status, is_blocked";
+const CUSTOMER_DETAIL_FIELDS =
   "id, created_at, name, phone, bike_id, customer_id, customer_id_image, status, is_blocked";
 
 function mapCustomerRow(row) {
   const createdLabel = row.created_at ? new Date(row.created_at).toLocaleString() : "";
   const shortCustomerId = row.customer_id || formatCustomerId(row.id);
-  const idImageSrc = row.customer_id_image || customerIdImageDataUri(row.id);
+  // In the list view, we always use the generated SVG thumbnail to save bandwidth.
+  // The real image (if any) is only fetched when opening the preview.
+  const idImageSrc = customerIdImageDataUri(row.id);
   return {
     ...row,
     createdLabel,
@@ -71,11 +75,24 @@ function mapCustomerRow(row) {
   };
 }
 
+const GlobalTimerContext = {
+  nowMs: Date.now(),
+  listeners: new Set(),
+};
+
+if (typeof window !== "undefined") {
+  setInterval(() => {
+    GlobalTimerContext.nowMs = Date.now();
+    GlobalTimerContext.listeners.forEach((l) => l(GlobalTimerContext.nowMs));
+  }, 1000);
+}
+
 const ElapsedTimer = memo(function ElapsedTimer({ createdAt }) {
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => GlobalTimerContext.nowMs);
   useEffect(() => {
-    const timer = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(timer);
+    const update = (next) => setNowMs(next);
+    GlobalTimerContext.listeners.add(update);
+    return () => GlobalTimerContext.listeners.delete(update);
   }, []);
   return <>{formatElapsedTime(createdAt, nowMs)}</>;
 });
@@ -112,9 +129,7 @@ export default function Dashboard() {
 
   const [nameError, setNameError] = useState("");
   const [phoneError, setPhoneError] = useState("");
-  const [customerIdError, setCustomerIdError] = useState("");
   const [submitError, setSubmitError] = useState("");
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [endingRentalId, setEndingRentalId] = useState("");
   const [isLoadingRentals, setIsLoadingRentals] = useState(true);
@@ -131,6 +146,10 @@ export default function Dashboard() {
   const [selectedBikeId, setSelectedBikeId] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const deferredAllCustomersSearch = useDeferredValue(allCustomersSearch);
+  const normalizedSearch = deferredSearchTerm.trim().toLowerCase();
+
   const loadActiveRentals = useCallback(async () => {
     if (!isConfigured || !supabase) {
       setIsLoadingRentals(false);
@@ -142,9 +161,10 @@ export default function Dashboard() {
       setIsLoadingRentals(true);
       setSubmitError("");
 
+      // Fetch only the active rentals using optimized list fields.
       const { data, error } = await supabase
         .from("customers")
-        .select(CUSTOMER_SELECT_FIELDS)
+        .select(CUSTOMER_LIST_FIELDS)
         .eq("status", true)
         .eq("is_blocked", false)
         .order("created_at", { ascending: false });
@@ -159,7 +179,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  const loadAllCustomersPage = useCallback(async (page, append = false) => {
+  const loadAllCustomersPage = useCallback(async (page, append = false, search = "") => {
     if (!isConfigured || !supabase) {
       setAllCustomers([]);
       return;
@@ -167,15 +187,25 @@ export default function Dashboard() {
     try {
       const from = (page - 1) * ALL_CUSTOMERS_PAGE_SIZE;
       const to = from + ALL_CUSTOMERS_PAGE_SIZE - 1;
-      const { data, error } = await supabase
+
+      let query = supabase
         .from("customers")
-        .select(CUSTOMER_SELECT_FIELDS)
-        .order("created_at", { ascending: false });
+        .select(CUSTOMER_LIST_FIELDS)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (search.trim()) {
+        const s = `%${search.trim().toLowerCase()}%`;
+        // Supabase .or() with .ilike() for cross-field search.
+        query = query.or(`name.ilike.${s},phone.ilike.${s},bike_id.ilike.${s},customer_id.ilike.${s}`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
-      const rows = (data ?? []).slice(from, to + 1).map(mapCustomerRow);
+      const rows = (data ?? []).map(mapCustomerRow);
       setAllCustomers((prev) => (append ? [...prev, ...rows] : rows));
-      setHasMoreAllCustomers((data ?? []).length > to + 1);
+      setHasMoreAllCustomers((data ?? []).length === ALL_CUSTOMERS_PAGE_SIZE);
     } catch {
       if (!append) setAllCustomers([]);
     }
@@ -187,20 +217,14 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    // Initial load and search re-fetch.
     loadActiveRentals();
-    loadAllCustomersPage(1, false);
+    loadAllCustomersPage(1, false, deferredAllCustomersSearch);
+    setAllCustomersPage(1);
+  }, [deferredAllCustomersSearch, loadActiveRentals, loadAllCustomersPage]);
 
+  useEffect(() => {
     if (!isConfigured || !supabase) return;
-
-    let refreshTimer = null;
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => {
-        loadActiveRentals();
-        loadAllCustomersPage(1, false);
-        setAllCustomersPage(1);
-      }, 250);
-    };
 
     const applyRealtimeChange = (payload) => {
       const eventType = payload?.eventType;
@@ -213,7 +237,8 @@ export default function Dashboard() {
         }
         if ((eventType === "INSERT" || eventType === "UPDATE") && nextRow) {
           const idx = prev.findIndex((row) => row.id === nextRow.id);
-          if (idx === -1) return [nextRow, ...prev].slice(0, allCustomersPage * ALL_CUSTOMERS_PAGE_SIZE);
+          // Only add to the list if we're on the first page or it's an update.
+          if (idx === -1) return [nextRow, ...prev].slice(0, ALL_CUSTOMERS_PAGE_SIZE);
           const copy = [...prev];
           copy[idx] = nextRow;
           return copy;
@@ -236,12 +261,10 @@ export default function Dashboard() {
         }
         return prev;
       });
-
-      scheduleRefresh();
     };
 
     const channel = supabase
-      .channel("customers-active-rentals")
+      .channel("customers-realtime-v3")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "customers" },
@@ -250,16 +273,11 @@ export default function Dashboard() {
       .subscribe();
 
     return () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
       supabase.removeChannel(channel);
     };
-  }, [allCustomersPage, loadActiveRentals, loadAllCustomersPage]);
+  }, []);
 
   const quickAddDisabled = useMemo(() => isSubmitting, [isSubmitting]);
-  const deferredSearchTerm = useDeferredValue(searchTerm);
-  const deferredAllCustomersSearch = useDeferredValue(allCustomersSearch);
-  const normalizedSearch = deferredSearchTerm.trim().toLowerCase();
-  const normalizedAllCustomersSearch = deferredAllCustomersSearch.trim().toLowerCase();
 
   const filteredActiveRentals = useMemo(() => {
     if (!normalizedSearch) return activeRentals;
@@ -268,12 +286,7 @@ export default function Dashboard() {
     });
   }, [activeRentals, normalizedSearch]);
 
-  const filteredAllCustomers = useMemo(() => {
-    if (!normalizedAllCustomersSearch) return allCustomers;
-    return allCustomers.filter((row) => {
-      return row.allSearchBlob.includes(normalizedAllCustomersSearch);
-    });
-  }, [allCustomers, normalizedAllCustomersSearch]);
+  const filteredAllCustomers = allCustomers;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -306,13 +319,6 @@ export default function Dashboard() {
       setPhoneError("");
     }
 
-    if (!trimmedCustomerId) {
-      setCustomerIdError("Customer ID is required.");
-      hasError = true;
-    } else {
-      setCustomerIdError("");
-    }
-
     if (hasError) return;
 
     try {
@@ -331,7 +337,7 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from("customers")
         .insert(payload)
-        .select(CUSTOMER_SELECT_FIELDS)
+        .select(CUSTOMER_LIST_FIELDS)
         .single();
       if (error) throw error;
       if (data?.id) {
@@ -365,7 +371,7 @@ export default function Dashboard() {
         .from("customers")
         .update({ status: false })
         .eq("id", rentalId)
-        .select(CUSTOMER_SELECT_FIELDS)
+        .select(CUSTOMER_LIST_FIELDS)
         .single();
 
       if (error) throw error;
@@ -395,10 +401,32 @@ export default function Dashboard() {
     reader.readAsDataURL(file);
   }
 
-  function openImagePreview(imageSrc, title) {
-    if (!imageSrc) return;
-    setPreviewImage(imageSrc);
-    setPreviewTitle(title || "Customer ID Image");
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+
+  async function openImagePreview(customerId, title) {
+    if (!customerId || !supabase) return;
+
+    try {
+      setIsPreviewLoading(true);
+      setPreviewTitle(title || "Customer ID Image");
+      setPreviewImage(""); // Reset previous preview.
+
+      // Fetch full details for the selected customer.
+      const { data, error } = await supabase
+        .from("customers")
+        .select(CUSTOMER_DETAIL_FIELDS)
+        .eq("id", customerId)
+        .single();
+
+      if (error) throw error;
+      setPreviewImage(data?.customer_id_image || customerIdImageDataUri(customerId));
+    } catch (err) {
+      console.error("Failed to fetch customer image:", err);
+      // Fallback to the generated SVG if fetching fails.
+      setPreviewImage(customerIdImageDataUri(customerId));
+    } finally {
+      setIsPreviewLoading(false);
+    }
   }
 
   function onOpenCustomerActions(row) {
@@ -420,7 +448,7 @@ export default function Dashboard() {
           created_at: new Date().toISOString(),
         })
         .eq("id", selectedCustomer.id)
-        .select(CUSTOMER_SELECT_FIELDS)
+        .select(CUSTOMER_LIST_FIELDS)
         .single();
       if (error) throw error;
       if (data?.id) {
@@ -456,7 +484,7 @@ export default function Dashboard() {
           status: false,
         })
         .eq("id", selectedCustomer.id)
-        .select(CUSTOMER_SELECT_FIELDS)
+        .select(CUSTOMER_LIST_FIELDS)
         .single();
       if (error) throw error;
       if (data?.id) {
@@ -483,7 +511,7 @@ export default function Dashboard() {
           is_blocked: false,
         })
         .eq("id", selectedCustomer.id)
-        .select(CUSTOMER_SELECT_FIELDS)
+        .select(CUSTOMER_LIST_FIELDS)
         .single();
       if (error) throw error;
       if (data?.id) {
@@ -572,7 +600,7 @@ export default function Dashboard() {
             </div>
 
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-zinc-300">Customer ID</label>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">Customer ID (Optional)</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                 <input
@@ -583,17 +611,14 @@ export default function Dashboard() {
                   aria-label="Customer ID"
                 />
               </div>
-              {customerIdError ? (
-                <div className="mt-1 text-xs text-red-400">{customerIdError}</div>
-              ) : null}
             </div>
 
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-zinc-300">Customer ID Image</label>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">ID Image (Optional)</label>
               <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-300 transition hover:border-zinc-700">
                 <Upload className="h-4 w-4 text-zinc-400" />
                 <span className="truncate">
-                  {customerIdImage ? "Image selected" : "Upload ID image"}
+                  {customerIdImage ? "Image selected" : "Upload image"}
                 </span>
                 <input
                   type="file"
@@ -680,7 +705,7 @@ export default function Dashboard() {
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={() => openImagePreview(row.idImageSrc, `Customer ${row.shortCustomerId}`)}
+                          onClick={(e) => { e.stopPropagation(); openImagePreview(row.id, `Customer ${row.shortCustomerId}`); }}
                           className="rounded-lg border border-zinc-700 transition hover:border-zinc-500"
                           aria-label={`Open ID image for ${row.shortCustomerId}`}
                         >
@@ -767,7 +792,7 @@ export default function Dashboard() {
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={() => openImagePreview(row.idImageSrc, `Customer ${row.shortCustomerId}`)}
+                          onClick={(e) => { e.stopPropagation(); openImagePreview(row.id, `Customer ${row.shortCustomerId}`); }}
                           className="rounded-lg border border-zinc-700 transition hover:border-zinc-500"
                           aria-label={`Open ID image for ${row.shortCustomerId}`}
                         >
@@ -813,7 +838,7 @@ export default function Dashboard() {
               onClick={async () => {
                 const nextPage = allCustomersPage + 1;
                 setIsLoadingMoreCustomers(true);
-                await loadAllCustomersPage(nextPage, true);
+                await loadAllCustomersPage(nextPage, true, deferredAllCustomersSearch);
                 setAllCustomersPage(nextPage);
                 setIsLoadingMoreCustomers(false);
               }}
@@ -825,27 +850,37 @@ export default function Dashboard() {
         ) : null}
       </div>
 
-      {previewImage ? (
+      {isPreviewLoading || previewImage ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-zinc-700 bg-zinc-900 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-zinc-100">{previewTitle}</h3>
               <button
                 type="button"
-                onClick={() => setPreviewImage("")}
+                onClick={() => {
+                  setPreviewImage("");
+                  setIsPreviewLoading(false);
+                }}
                 className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
               >
                 Close
               </button>
             </div>
-            <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950 p-2">
-              <Image
-                src={previewImage}
-                alt={previewTitle || "Customer ID preview"}
-                width={900}
-                height={600}
-                className="h-auto max-h-[70vh] w-full rounded-lg object-contain"
-              />
+            <div className="relative min-h-[300px] overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950 p-2">
+              {isPreviewLoading ? (
+                <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
+                  Loading full image...
+                </div>
+              ) : (
+                <Image
+                  src={previewImage}
+                  alt={previewTitle || "Customer ID preview"}
+                  width={900}
+                  height={600}
+                  priority
+                  className="h-auto max-h-[70vh] w-full rounded-lg object-contain"
+                />
+              )}
             </div>
           </div>
         </div>

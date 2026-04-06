@@ -593,6 +593,10 @@
     max-height: 70vh;
   }
 
+  .min-h-\[300px\] {
+    min-height: 300px;
+  }
+
   .min-h-full {
     min-height: 100%;
   }
