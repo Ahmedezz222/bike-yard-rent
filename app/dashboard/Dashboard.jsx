@@ -55,9 +55,9 @@ function customerIdImageDataUri(id) {
 
 const ALL_CUSTOMERS_PAGE_SIZE = 100;
 const CUSTOMER_LIST_FIELDS =
-  "id, created_at, name, phone, bike_id, customer_id, status, is_blocked";
+  "id, created_at, name, phone, bike_id, customer_id, status, is_blocked, rent_total_time";
 const CUSTOMER_DETAIL_FIELDS =
-  "id, created_at, name, phone, bike_id, customer_id, customer_id_image, status, is_blocked";
+  "id, created_at, name, phone, bike_id, customer_id, customer_id_image, status, is_blocked, rent_total_time";
 
 function mapCustomerRow(row) {
   const createdLabel = row.created_at ? new Date(row.created_at).toLocaleString() : "";
@@ -332,6 +332,7 @@ export default function Dashboard() {
         customer_id_image: customerIdImage || null,
         status: true,
         created_at: new Date().toISOString(),
+        rent_total_time: null,
       };
 
       const { data, error } = await supabase
@@ -367,9 +368,17 @@ export default function Dashboard() {
     try {
       setSubmitError("");
       setEndingRentalId(rentalId);
+
+      // Find the rental to get its created_at
+      const rental = activeRentals.find((r) => r.id === rentalId);
+      const totalTime = rental ? formatElapsedTime(rental.created_at, Date.now()) : null;
+
       const { data, error } = await supabase
         .from("customers")
-        .update({ status: false })
+        .update({
+          status: false,
+          rent_total_time: totalTime,
+        })
         .eq("id", rentalId)
         .select(CUSTOMER_LIST_FIELDS)
         .single();
@@ -446,6 +455,7 @@ export default function Dashboard() {
           bike_id: selectedBikeId.trim() || selectedCustomer.bike_id || "",
           is_blocked: false,
           created_at: new Date().toISOString(),
+          rent_total_time: null,
         })
         .eq("id", selectedCustomer.id)
         .select(CUSTOMER_LIST_FIELDS)
@@ -768,6 +778,7 @@ export default function Dashboard() {
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Phone</th>
                   <th className="px-4 py-3">Bike ID</th>
+                  <th className="px-4 py-3">Total Time</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Created</th>
                 </tr>
@@ -775,7 +786,7 @@ export default function Dashboard() {
               <tbody>
                 {filteredAllCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
                       No customers saved yet.
                     </td>
                   </tr>
@@ -792,7 +803,10 @@ export default function Dashboard() {
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); openImagePreview(row.id, `Customer ${row.shortCustomerId}`); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openImagePreview(row.id, `Customer ${row.shortCustomerId}`);
+                          }}
                           className="rounded-lg border border-zinc-700 transition hover:border-zinc-500"
                           aria-label={`Open ID image for ${row.shortCustomerId}`}
                         >
@@ -809,6 +823,9 @@ export default function Dashboard() {
                       <td className="px-4 py-3 font-medium text-zinc-100">{row.name}</td>
                       <td className="px-4 py-3 text-zinc-300">{row.phone}</td>
                       <td className="px-4 py-3 text-zinc-300">{row.bike_id}</td>
+                      <td className="px-4 py-3 font-mono text-zinc-300">
+                        {row.rent_total_time || "--"}
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-medium ${
